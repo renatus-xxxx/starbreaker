@@ -1,0 +1,39 @@
+# Makefile.linux - Linux build for STAR BREAKER (MSX / z88dk)
+#
+# Flow (same shape as try16's Makefile.linux):
+#   zcc +msx -create-app -O3 -subtype=msxdos -DMSX -lm \
+#       src/main.c src/msxclib.c src/msxalib.c -bn STARBRK.COM
+#   python3 tools/make_dsk.py <try16 template DSK> STARBRK.COM STARBRK.DSK
+#
+# Libraries: msxalib.{h,c} / msxclib.{h,c} by yamayamaru
+# (yamayamaru-storage-place, source-code_2023-09-30), used unmodified.
+# Their own build scripts use the same zcc +msx -subtype=msxdos line.
+
+Z88DK_DIR ?= $(HOME)/workspace/msx/z88dk
+export ZCCCFG := $(Z88DK_DIR)/lib/config
+export PATH   := $(Z88DK_DIR)/bin:$(PATH)
+
+BUILD  := build-linux
+TARGET := $(BUILD)/STARBRK.COM
+DSK    := $(BUILD)/STARBRK.DSK
+SRCS   := src/main.c src/msxclib.c src/msxalib.c
+HDRS   := src/msxalib.h src/msxclib.h
+DSK_TEMPLATE := $(HOME)/workspace/msx/github/try16/bin/TRY16.DSK
+DSK_TOOL := tools/make_dsk.py
+
+all: $(TARGET)
+
+$(TARGET): $(SRCS) $(HDRS)
+	mkdir -p $(BUILD)
+	cd $(BUILD) && zcc +msx -create-app -O3 -subtype=msxdos -DMSX -lm -I../src ../src/main.c ../src/msxclib.c ../src/msxalib.c -bn STARBRK.COM
+	rm -f $(BUILD)/STARBRK.img
+
+dsk: $(DSK)
+
+$(DSK): $(TARGET) $(DSK_TEMPLATE) $(DSK_TOOL)
+	python3 $(DSK_TOOL) $(DSK_TEMPLATE) $(TARGET) $(DSK)
+
+clean:
+	rm -rf $(BUILD)
+
+.PHONY: all dsk clean
