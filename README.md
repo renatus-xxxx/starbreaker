@@ -1,3 +1,7 @@
+[日本語版はこちら](./README.ja.md)
+
+<img src="https://raw.githubusercontent.com/renatus-xxxx/starbreaker/main/images/teaser.png" title="teaser" />
+
 # STAR BREAKER — simple block-breaking game for MSX
 
 MSX-DOS `.COM` game built with **z88dk** (sccz80), in the same
@@ -11,6 +15,17 @@ benchmark (1800 frames of gameplay, JIFFY-counted in WebMSX):
 |---|---|---|
 | v2 (before tuning) | 8659 | 12.47 |
 | v3 (tuned) | 2172 | 49.72 |
+
+## Play / Download
+
+- [Play on WebMSX](https://webmsx.org/?MACHINE=MSXTRJ&DISKA_URL=https://raw.githubusercontent.com/renatus-xxxx/starbreaker/main/bin/STARBRK.DSK&FAST_BOOT)
+- [STARBRK.DSK (bootable 720KB disk image)](https://raw.githubusercontent.com/renatus-xxxx/starbreaker/main/bin/STARBRK.DSK)
+- [STARBRK.COM (MSX-DOS program)](https://raw.githubusercontent.com/renatus-xxxx/starbreaker/main/bin/STARBRK.COM)
+
+The links above serve the files from `bin/` via
+raw.githubusercontent.com; they become active when this repository
+is made public (it is currently private). Until then, grab the
+files from the `bin/` folder in this repository.
 
 ## Performance (v3 tuning)
 
@@ -111,7 +126,9 @@ rewriting `AUTOEXEC.BAT` to run `starbrk` (`tools/make_dsk.py`).
 ```
 starbreaker/
 ├─ Makefile.linux
-├─ README.md
+├─ README.md / README.ja.md
+├─ images/teaser.png
+├─ bin/                 # STARBRK.COM / STARBRK.DSK (release binaries)
 ├─ src/
 │  ├─ main.c            # the game
 │  ├─ msxalib.{h,c}     # yamayamaru library (unmodified)
