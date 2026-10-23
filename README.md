@@ -22,10 +22,6 @@ benchmark (1800 frames of gameplay, JIFFY-counted in WebMSX):
 - [STARBRK.DSK (bootable 720KB disk image)](https://raw.githubusercontent.com/renatus-xxxx/starbreaker/main/bin/STARBRK.DSK)
 - [STARBRK.COM (MSX-DOS program)](https://raw.githubusercontent.com/renatus-xxxx/starbreaker/main/bin/STARBRK.COM)
 
-The links above serve the files from `bin/` via
-raw.githubusercontent.com; they become active when this repository
-is made public (it is currently private). Until then, grab the
-files from the `bin/` folder in this repository.
 
 ## Performance (v3 tuning)
 

@@ -23,10 +23,6 @@ JIFFY により計測）:
 - [STARBRK.DSK (ブート可能 720KB ディスクイメージ)](https://raw.githubusercontent.com/renatus-xxxx/starbreaker/main/bin/STARBRK.DSK)
 - [STARBRK.COM (MSX-DOS プログラム)](https://raw.githubusercontent.com/renatus-xxxx/starbreaker/main/bin/STARBRK.COM)
 
-上記のリンクは `bin/` のファイルを raw.githubusercontent.com 経由で
-配信します。このリポジトリが公開 (Public) になると有効になります
-（現在は Private）。それまではリポジトリ内の `bin/` フォルダから
-取得してください。
 
 ## パフォーマンス (v3 チューニング)
 
