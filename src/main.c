@@ -774,13 +774,134 @@ static void reset_ball_on_paddle(void)
 /* ============================================================
  * Screens / game flow
  * ============================================================ */
+
+extern char wrport;     /* VDP write port, set by ginit() in msxalib */
+
+#include "title_img.h"
+
+/* ---- baked title image (logo + small lines): PackBits RLE in
+   title_img.h, decoded by an asm blitter straight to VRAM.
+   Replaces ~200 JIFFY ticks of glyph expansion with one copy. */
+static unsigned char *tb_src;
+static unsigned char *tb_ptr;
+static unsigned int tb_addr;
+static unsigned char tb_wb;
+static unsigned char tb_rows;
+#ifdef TITLETIME
+static unsigned int title_t0, title_ticks;
+#endif
+
+static void blit_rle(void)
+{
+#asm
+        ld      a,(_wrport)
+        inc     a
+        ld      c,a
+        ld      a,2
+        out     (c),a
+        ld      a,8fh
+        out     (c),a
+_tb_wait:
+        in      a,(c)
+        and     1
+        jr      nz,_tb_wait
+        xor     a
+        out     (c),a
+        ld      a,8fh
+        out     (c),a
+        di
+        ld      hl,(_tb_src)
+        ld      (_tb_ptr),hl
+_tb_row:
+        ld      hl,(_tb_addr)
+        ld      a,(_wrport)
+        inc     a
+        ld      c,a
+        ld      a,h
+        rlca
+        rlca
+        and     3
+        out     (c),a
+        ld      a,8eh
+        out     (c),a
+        ld      a,l
+        out     (c),a
+        ld      a,h
+        and     3fh
+        or      40h
+        out     (c),a
+        dec     c
+        ld      hl,(_tb_ptr)
+        ld      a,(_tb_wb)
+        ld      e,a
+_tb_tok:
+        ld      a,e
+        or      a
+        jr      z,_tb_rowdone
+        ld      a,(hl)
+        inc     hl
+        cp      80h
+        jr      c,_tb_lit
+        jr      z,_tb_tok
+        neg
+        inc     a
+        ld      b,a
+        ld      d,a
+        ld      a,(hl)
+        inc     hl
+_tb_rep:
+        out     (c),a
+        djnz    _tb_rep
+        ld      a,e
+        sub     d
+        ld      e,a
+        jr      _tb_tok
+_tb_lit:
+        inc     a
+        ld      b,a
+        ld      d,a
+_tb_litloop:
+        outi
+        jr      nz,_tb_litloop
+        ld      a,e
+        sub     d
+        ld      e,a
+        jr      _tb_tok
+_tb_rowdone:
+        ld      (_tb_ptr),hl
+        ld      hl,(_tb_addr)
+        ld      de,128
+        add     hl,de
+        ld      (_tb_addr),hl
+        ld      a,(_tb_rows)
+        dec     a
+        ld      (_tb_rows),a
+        jr      nz,_tb_row
+        ei
+        ret
+#endasm
+}
+
+static void draw_title_image(void)
+{
+    tb_src = (unsigned char *)tlogo_data;
+    tb_addr = TLOGO_Y * 128 + TLOGO_X / 2;
+    tb_wb = TLOGO_WB;
+    tb_rows = TLOGO_H;
+    blit_rle();
+    tb_src = (unsigned char *)tlines_data;
+    tb_addr = TLINES_Y * 128 + TLINES_X / 2;
+    tb_wb = TLINES_WB;
+    tb_rows = TLINES_H;
+    blit_rle();
+}
+
 static int title_screen(void)
 {
-    static const unsigned char title_cols[11] = {
-        C_YELLOW, C_ORANGE, C_PINK, C_GREEN,
-        C_CYAN, C_LBLUE, C_PURPLE, C_YELLOW, C_ORANGE, C_PINK, C_GREEN
-    };
     int i, blink = 0, frame = 0;
+#ifdef TITLETIME
+    title_t0 = *(volatile unsigned int *)0xFC9E;
+#endif
     draw_background();
     draw_walls();
     boxfil(0, 0, 255, HUD_H - 1, C_BLACK, 0);
@@ -789,29 +910,15 @@ static int title_screen(void)
         blocks[0][i] = 1;
         draw_block(0, i);
     }
-    /* big two-line title "STAR / BREAKER", one color per letter
-       (the full name is too wide for one line at scale 3) */
-    {
-        static const char *lines[2] = { "STAR", "BREAKER" };
-        int li, ci = 0;
-        for (li = 0; li < 2; li++) {
-            const char *p = lines[li];
-            int x = (256 - text_width(p, 3)) / 2;
-            while (*p) {
-                draw_char5(x, 54 + li * 30, (unsigned char)*p,
-                           title_cols[ci], C_BG, 3);
-                x += 8 * 3 + 2;
-                p++;
-                ci++;
-            }
-        }
-    }
-    draw_text5_centered(152, "CURSOR KEYS OR JOYSTICK", C_LBLUE, C_BG, 1);
-    draw_text5_centered(166, "ESC : EXIT TO DOS", C_LBLUE, C_BG, 1);
+    /* baked logo + small lines (one RLE blit) */
+    draw_title_image();
     /* show paddle + ball as decoration */
     paddle_x = 112;
     reset_ball_on_paddle();
     draw_sprites();
+#ifdef TITLETIME
+    title_ticks = *(volatile unsigned int *)0xFC9E - title_t0;
+#endif
     kilbuf();
     /* wait for release, then a fresh press; blink the prompt */
     for (;;) {
@@ -1106,5 +1213,8 @@ int main(void)
     hide_sprites();
     color(15, 1, 1);
     screen(0);
+#ifdef TITLETIME
+    printf("TITLE ticks=%u\n", title_ticks);
+#endif
     return 0;
 }

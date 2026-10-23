@@ -7,8 +7,9 @@
 MSX-DOS `.COM` game built with **z88dk** (sccz80), in the same
 build → DSK → WebMSX flow that was verified with try16.
 
-Current version: **v3** — MSX2 (SCREEN 5) graphics + PSG BGM/SE,
-performance-tuned (see "Performance" below). The v3 autopilot
+Current version: **v4** — MSX2 (SCREEN 5) graphics + PSG BGM/SE,
+performance-tuned (see "Performance" below), and a pre-rendered
+title logo (see "Baked title image"). The v3 autopilot
 benchmark (1800 frames of gameplay, JIFFY-counted in WebMSX):
 
 | build | jiffy ticks | effective fps |
@@ -59,6 +60,20 @@ they change. Measured with a hit-frame slip counter added to the
 bench (frames following a hit that took ≥2 ticks, out of 30
 hits): ~30 before, 8 with the HUD deferral, **3** with the erase
 also deferred; effective fps 49.65 → 55.78 in the same run.
+
+## Baked title image (v4)
+
+The title lettering is no longer drawn glyph by glyph. The logo
+(STAR in yellow, BREAKER in green, white gloss, black outline)
+and the two small lines under it are a pre-rendered image, baked
+from the game's own palette/font data by
+`tools/gen_title_image.py` into PackBits RLE data
+(`src/title_img.h`, 6,103 bytes) and decoded straight to VRAM by
+a small assembly blitter (which first waits for the VDP command
+engine to go idle — CPU VRAM writes during command execution
+land at the command's address pointer). Total title draw:
+**~205 → ~6 JIFFY ticks**. The blinking "PRESS SPACE TO START"
+prompt at y=136 stays dynamic, between the two baked bands.
 
 ## Attract demo
 
@@ -127,8 +142,9 @@ starbreaker/
 ├─ bin/                 # STARBRK.COM / STARBRK.DSK (release binaries)
 ├─ src/
 │  ├─ main.c            # the game
+│  ├─ title_img.h       # baked title image (generated)
 │  ├─ msxalib.{h,c}     # yamayamaru library (unmodified)
 │  └─ msxclib.{h,c}     # yamayamaru library (unmodified)
-├─ tools/make_dsk.py
+├─ tools/make_dsk.py, gen_title_image.py
 └─ build-linux/         # STARBRK.COM / STARBRK.DSK (generated)
 ```
