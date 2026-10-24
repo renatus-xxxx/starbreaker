@@ -313,6 +313,8 @@ static const unsigned int se_clear_n[] = { 214, 170, 143, 107, 143, 107 };
 static const unsigned char se_clear_d[] = { 6, 6, 6, 6, 6, 10 };
 static const unsigned int se_over_n[] = { 214, 254, 320, 428 };
 static const unsigned char se_over_d[] = { 7, 7, 7, 12 };
+static const unsigned int se_build_n[] = { 192, 152, 121, 96, 76 };
+static const unsigned char se_build_d[] = { 4, 4, 4, 4, 7 };
 
 #define SE_PADDLE se_start(se_paddle_n, se_paddle_d, 1)
 #define SE_BLOCK  se_start(se_block_n, se_block_d, 1)
@@ -321,6 +323,7 @@ static const unsigned char se_over_d[] = { 7, 7, 7, 12 };
 #define SE_MISS   se_start(se_miss_n, se_miss_d, 5)
 #define SE_CLEAR  se_start(se_clear_n, se_clear_d, 6)
 #define SE_OVER   se_start(se_over_n, se_over_d, 4)
+#define SE_BUILD  se_start(se_build_n, se_build_d, 5)
 
 /* PSG registers are written directly through ports 0xA0/0xA1
    (the BIOS WRTPSG path via msxclib's sound() costs a CALSLT per
@@ -727,8 +730,7 @@ static void reset_field(void)
             blocks[r][c] = 1;
             remaining++;
         }
-    /* the whole field is one baked image (was 65 x draw_block) */
-    blit_img(tfield_data, TFIELD_X, TFIELD_Y, TFIELD_WB, TFIELD_H);
+    /* the block field itself is drawn by build_intro() */
 #ifdef OPTMEAS
     MEAS(4);
 #endif
@@ -957,7 +959,6 @@ static int title_screen(void)
     for (;;) {
         wait_frame();
         merge_joystick();
-        if (lat_esc) return ST_EXIT;
         if (!lat_trig) break;
     }
     {
@@ -976,7 +977,6 @@ static int title_screen(void)
                 draw_text5_centered(136, "PRESS SPACE TO START",
                                     C_WHITE, C_BG, 1);
         }
-        if (lat_esc) return ST_EXIT;
         if (lat_trig) return ST_PLAY;
     }
     }
@@ -1004,6 +1004,36 @@ static void message_screen(const char *msg, int col)
 #endif
 }
 
+#ifndef INTRO_FRAMES_PER_ROW
+#define INTRO_FRAMES_PER_ROW 4
+#endif
+
+/* Stage intro (A+E): the block rows cascade in from the top,
+   one row every INTRO_FRAMES_PER_ROW frames, with a rising
+   5-note jingle (SE_BUILD) whose notes land on the rows. Every
+   frame goes through wait_frame(), so the BGM sequencer keeps
+   running during the cascade -- no audio stall. Input is not
+   read during the cascade; play begins when it completes. */
+static void build_intro(void)
+{
+    int r, f;
+#ifdef BENCH
+    for (r = 0; r < BLK_ROWS; r++)
+        blit_img(tfield_bands[r], TFIELDR0_X, TFIELDR0_Y + r * 13,
+                 TFIELDR0_WB, TFIELDR0_H);
+#else
+    SE_BUILD;
+    for (r = 0; r < BLK_ROWS; r++) {
+        blit_img(tfield_bands[r], TFIELDR0_X, TFIELDR0_Y + r * 13,
+                 TFIELDR0_WB, TFIELDR0_H);
+        for (f = 0; f < INTRO_FRAMES_PER_ROW; f++) {
+            wait_frame();
+            draw_sprites();
+        }
+    }
+#endif
+}
+
 static int play_game(void)
 {
     score = 0;
@@ -1011,6 +1041,7 @@ static int play_game(void)
     paddle_x = 112;
     reset_field();
     reset_ball_on_paddle();
+    build_intro();
 
     for (;;) {
         int prev_bx, prev_by;
@@ -1052,7 +1083,7 @@ static int play_game(void)
             if (paddle_x < PADDLE_MIN_X) paddle_x = PADDLE_MIN_X;
             if (paddle_x > PADDLE_MAX_X) paddle_x = PADDLE_MAX_X;
         } else if (lat_esc) {
-            return ST_EXIT;
+            return ST_TITLE;    /* ESC in game: back to title */
         }
 
         if (lat_left)  paddle_x -= PADDLE_SPEED;
@@ -1268,11 +1299,11 @@ int main(void)
             if (state == ST_OVER) {
                 SE_OVER;
                 message_screen("GAME OVER", C_RED);
-                state = wait_trigger_or_esc() ? ST_PLAY : ST_EXIT;
+                state = wait_trigger_or_esc() ? ST_PLAY : ST_TITLE;
             } else if (state == ST_CLEAR) {
                 SE_CLEAR;
                 message_screen("GAME CLEAR!", C_GREEN);
-                state = wait_trigger_or_esc() ? ST_PLAY : ST_EXIT;
+                state = wait_trigger_or_esc() ? ST_PLAY : ST_TITLE;
             }
         }
     }

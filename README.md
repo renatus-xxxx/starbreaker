@@ -7,7 +7,7 @@
 MSX-DOS `.COM` game built with **z88dk** (sccz80), in the same
 build → DSK → WebMSX flow that was verified with try16.
 
-Current version: **v5** — MSX2 (SCREEN 5) graphics + PSG BGM/SE,
+Current version: **v6** — MSX2 (SCREEN 5) graphics + PSG BGM/SE,
 performance-tuned (see "Performance" below), and a pre-rendered
 title logo (see "Baked title image"). The v3 autopilot
 benchmark (1800 frames of gameplay, JIFFY-counted in WebMSX):
@@ -97,6 +97,20 @@ both sides, exactly as the glyph version drew it; the overflow
 is baked as side strips so nothing is clipped. Remaining setup
 cost is the HUD digits (11 ticks), which are dynamic.
 
+## Stage intro & controls (v6)
+
+Stage start is now a small presentation: the five block rows
+cascade in from the top (one row every 4 frames, ~0.33 s) with a
+rising five-note jingle on the SE channel, each note landing on
+its row. Every frame still goes through the frame wait, so the
+BGM never stalls; input is accepted once the cascade completes.
+
+ESC no longer leaves the program: in game it returns to the
+title screen, and the message panels offer SPACE (retry) or ESC
+(title) — their hint reads "SPACE:RETRY  ESC:TITLE". The DOS
+exit was removed entirely (the title screen does not advertise
+or accept it anymore) to make an accidental quit impossible.
+
 ## Attract demo
 
 Leave the title screen alone for ~5 seconds and a demo game
@@ -139,7 +153,7 @@ speed — see "Performance".)
   decay over an octave-bouncing pulse bass on ch B; effects
   (ch C) for paddle/wall/block/launch/miss/clear/over
 - Controls: cursor keys **or** joystick port 1; SPACE / trigger A
-  launches the ball; ESC exits to MSX-DOS
+  launches the ball; ESC returns to the title screen
 - 3 lives; ball missed = life lost; all blocks cleared = GAME CLEAR
 - Frame sync on JIFFY (0xFC9E), 60 fps target (NTSC)
 
