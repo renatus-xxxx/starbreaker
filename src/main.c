@@ -23,7 +23,16 @@
  */
 
 #include <msxalib.h>
+
+#ifdef OPTMEAS
+static unsigned int meas[8];
+#define MEAS(i) (meas[i] = *(volatile unsigned int *)0xFC9E)
+#endif
 #include <msxclib.h>
+#include "field_img.h"
+
+static void blit_img(const unsigned char *data, int x, int y,
+                     int wb, int h);
 
 /* ---- system variables ---- */
 #define JIFFY   (*(volatile unsigned char *)0xfc9e)
@@ -624,13 +633,11 @@ static void draw_walls(void)
    refreshed when score/lives change (5 cpym2v instead of 22). */
 static void draw_hud_static(void)
 {
-    boxfil(0, 0, 255, HUD_H - 1, C_BLACK, 0);
-    draw_text5(8, 4, "SCORE", C_LBLUE, C_BLACK, 1);
+    /* baked strip: labels + black band (digits are drawn after) */
     if (demo_mode)
-        draw_text5(112, 4, "DEMO", C_PURPLE, C_BLACK, 1);
+        blit_img(thudd_data, THUDD_X, THUDD_Y, THUDD_WB, THUDD_H);
     else
-        draw_text5(100, 4, "BREAKER", C_PURPLE, C_BLACK, 1);
-    draw_text5(192, 4, "LIFE", C_PINK, C_BLACK, 1);
+        blit_img(thudn_data, THUDN_X, THUDN_Y, THUDN_WB, THUDN_H);
 }
 
 /* HUD values: only digits that actually changed are redrawn, and
@@ -696,19 +703,35 @@ static void erase_block(int r, int c)
 static void reset_field(void)
 {
     int r, c;
+#ifdef OPTMEAS
+    MEAS(0);
+#endif
     draw_background();
     draw_walls();
+#ifdef OPTMEAS
+    MEAS(1);
+#endif
     draw_hud_static();
+#ifdef OPTMEAS
+    MEAS(2);
+#endif
     hud_score_shown = -1;
     hud_lives_shown = -1;
     draw_hud_values();
+#ifdef OPTMEAS
+    MEAS(3);
+#endif
     remaining = 0;
     for (r = 0; r < BLK_ROWS; r++)
         for (c = 0; c < BLK_COLS; c++) {
             blocks[r][c] = 1;
             remaining++;
-            draw_block(r, c);
         }
+    /* the whole field is one baked image (was 65 x draw_block) */
+    blit_img(tfield_data, TFIELD_X, TFIELD_Y, TFIELD_WB, TFIELD_H);
+#ifdef OPTMEAS
+    MEAS(4);
+#endif
 }
 
 static void setup_sprites(void)
@@ -778,6 +801,7 @@ static void reset_ball_on_paddle(void)
 extern char wrport;     /* VDP write port, set by ginit() in msxalib */
 
 #include "title_img.h"
+
 
 /* ---- baked title image (logo + small lines): PackBits RLE in
    title_img.h, decoded by an asm blitter straight to VRAM.
@@ -896,6 +920,15 @@ static void draw_title_image(void)
     blit_rle();
 }
 
+static void blit_img(const unsigned char *data, int x, int y, int wb, int h)
+{
+    tb_src = (unsigned char *)data;
+    tb_addr = y * 128 + x / 2;
+    tb_wb = (unsigned char)wb;
+    tb_rows = (unsigned char)h;
+    blit_rle();
+}
+
 static int title_screen(void)
 {
     int i, blink = 0, frame = 0;
@@ -951,14 +984,24 @@ static int title_screen(void)
 
 static void message_screen(const char *msg, int col)
 {
-    boxfil(43, 86, 212, 126, C_BLACK, 0);
-    line_m(43, 86, 212, 86, C_LBLUE, 0);
-    line_m(43, 126, 212, 126, C_LBLUE, 0);
-    line_m(43, 86, 43, 126, C_LBLUE, 0);
-    line_m(212, 86, 212, 126, C_LBLUE, 0);
-    draw_text5_centered(94, msg, col, C_BLACK, 2);
-    draw_text5_centered(116, "SPACE:RETRY  ESC:DOS", C_WHITE, C_BLACK, 1);
+#ifdef OPTMEAS
+    MEAS(5);
+#endif
+    (void)msg;
+    /* the whole panel (frame + message + hint line) is baked */
+    if (col == C_RED) {
+        blit_img(tpover_data, TPOVER_X, TPOVER_Y, TPOVER_WB, TPOVER_H);
+        blit_img(tpoverl_data, TPOVERL_X, TPOVERL_Y, TPOVERL_WB, TPOVERL_H);
+        blit_img(tpoverr_data, TPOVERR_X, TPOVERR_Y, TPOVERR_WB, TPOVERR_H);
+    } else {
+        blit_img(tpclear_data, TPCLEAR_X, TPCLEAR_Y, TPCLEAR_WB, TPCLEAR_H);
+        blit_img(tpclearl_data, TPCLEARL_X, TPCLEARL_Y, TPCLEARL_WB, TPCLEARL_H);
+        blit_img(tpclearr_data, TPCLEARR_X, TPCLEARR_Y, TPCLEARR_WB, TPCLEARR_H);
+    }
     draw_sprites();
+#ifdef OPTMEAS
+    MEAS(6);
+#endif
 }
 
 static int play_game(void)
@@ -1158,6 +1201,31 @@ int main(void)
     init_block_tables();
     audio_init();
     last_jiffy = JIFFY;
+
+#ifdef OPTMEAS
+    {
+        int i;
+        unsigned int over_ticks, clear_ticks;
+        paddle_x = 112;
+        reset_field();
+        reset_ball_on_paddle();
+        message_screen("GAME OVER", C_RED);
+        over_ticks = meas[6] - meas[5];
+        for (i = 0; i < 150; i++) wait_frame();
+        message_screen("GAME CLEAR!", C_GREEN);
+        clear_ticks = meas[6] - meas[5];
+        for (i = 0; i < 150; i++) wait_frame();
+        audio_stop();
+        hide_sprites();
+        color(15, 1, 1);
+        screen(0);
+        printf("SETUP bgwalls=%u hud=%u values=%u blocks=%u total=%u\n",
+               meas[1] - meas[0], meas[2] - meas[1], meas[3] - meas[2],
+               meas[4] - meas[3], meas[4] - meas[0]);
+        printf("MSG over=%u clear=%u\n", over_ticks, clear_ticks);
+        return 0;
+    }
+#endif
 
 #ifdef BENCH
     {

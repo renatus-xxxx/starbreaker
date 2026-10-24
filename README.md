@@ -7,7 +7,7 @@
 MSX-DOS `.COM` game built with **z88dk** (sccz80), in the same
 build → DSK → WebMSX flow that was verified with try16.
 
-Current version: **v4** — MSX2 (SCREEN 5) graphics + PSG BGM/SE,
+Current version: **v5** — MSX2 (SCREEN 5) graphics + PSG BGM/SE,
 performance-tuned (see "Performance" below), and a pre-rendered
 title logo (see "Baked title image"). The v3 autopilot
 benchmark (1800 frames of gameplay, JIFFY-counted in WebMSX):
@@ -74,6 +74,28 @@ engine to go idle — CPU VRAM writes during command execution
 land at the command's address pointer). Total title draw:
 **~205 → ~6 JIFFY ticks**. The blinking "PRESS SPACE TO START"
 prompt at y=136 stays dynamic, between the two baked bands.
+
+## More baked screens (v5)
+
+The same trick now covers every heavy static draw, because the
+PSG sequencer advances once per frame — any long draw is heard
+as the BGM cutting out:
+
+| draw | before | after |
+|---|---|---|
+| game setup (total) | 53 ticks | **16 ticks** |
+| — of which HUD labels | 32 | 1 |
+| — of which block field | 8 | 2 |
+| GAME OVER panel | 91 ticks | **2 ticks** |
+| GAME CLEAR panel | 101 ticks | **2 ticks** |
+
+The full block field, the HUD label strip (normal/demo) and
+both message panels are baked by `tools/gen_opt_images.py` into
+`src/field_img.h` (7.5 KB of RLE) and blitted like the title.
+The panels' text is wider than the frame and overflows it on
+both sides, exactly as the glyph version drew it; the overflow
+is baked as side strips so nothing is clipped. Remaining setup
+cost is the HUD digits (11 ticks), which are dynamic.
 
 ## Attract demo
 
@@ -143,8 +165,9 @@ starbreaker/
 ├─ src/
 │  ├─ main.c            # the game
 │  ├─ title_img.h       # baked title image (generated)
+│  ├─ field_img.h       # baked field/HUD/panels (generated)
 │  ├─ msxalib.{h,c}     # yamayamaru library (unmodified)
 │  └─ msxclib.{h,c}     # yamayamaru library (unmodified)
-├─ tools/make_dsk.py, gen_title_image.py
+├─ tools/make_dsk.py, gen_title_image.py, gen_opt_images.py
 └─ build-linux/         # STARBRK.COM / STARBRK.DSK (generated)
 ```
