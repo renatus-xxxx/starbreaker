@@ -7,7 +7,7 @@
 MSX-DOS `.COM` game built with **z88dk** (sccz80), in the same
 build → DSK → WebMSX flow that was verified with try16.
 
-Current version: **v6** — MSX2 (SCREEN 5) graphics + PSG BGM/SE,
+Current version: **v7** — MSX2 (SCREEN 5) graphics + PSG BGM/SE,
 performance-tuned (see "Performance" below), and a pre-rendered
 title logo (see "Baked title image"). The v3 autopilot
 benchmark (1800 frames of gameplay, JIFFY-counted in WebMSX):
@@ -96,6 +96,22 @@ The panels' text is wider than the frame and overflows it on
 both sides, exactly as the glyph version drew it; the overflow
 is baked as side strips so nothing is clipped. Remaining setup
 cost is the HUD digits (11 ticks), which are dynamic.
+
+## No more audio stalls (v7)
+
+Two measured fixes (JIFFY ticks, WebMSX):
+
+- The title prompt blink redrew 20 glyphs one by one: **41
+  ticks** per toggle, freezing the BGM for ~0.7 s every half
+  second (and slow enough to be photographed half-painted).
+  Both prompt states are now baked RLE bands; a toggle is one
+  blit, **under 1 tick**, and the text snaps on/off as a whole.
+- Screen changes no longer freeze the song mid-note: entering
+  the title (or starting a stage) silences the PSG first, the
+  screen is drawn in silence, and the BGM restarts from the
+  top once the new screen's frame loop runs. At stage start
+  the cascade jingle plays in the silence and the song kicks
+  in together with player control.
 
 ## Stage intro & controls (v6)
 

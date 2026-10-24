@@ -383,6 +383,26 @@ static void audio_stop(void)
     psg_set(7, 0x3f);
 }
 
+/* Silence BGM + SE (used across screen changes, so a redraw
+   cannot stall the sequencer mid-note; the song restarts
+   cleanly afterwards instead of freezing). */
+static void audio_silence(void)
+{
+    bgm_on = 0;
+    se_active = 0;
+    psg_set(8, 0);
+    psg_set(9, 0);
+    psg_set(10, 0);
+}
+
+/* Restart the song from the top. */
+static void bgm_restart(void)
+{
+    bgm_step = 0;
+    bgm_frame = 0;
+    bgm_on = 1;
+}
+
 /* called once per frame from wait_frame() */
 static void audio_update(void)
 {
@@ -934,6 +954,7 @@ static void blit_img(const unsigned char *data, int x, int y, int wb, int h)
 static int title_screen(void)
 {
     int i, blink = 0, frame = 0;
+    audio_silence();
 #ifdef TITLETIME
     title_t0 = *(volatile unsigned int *)0xFC9E;
 #endif
@@ -951,6 +972,7 @@ static int title_screen(void)
     paddle_x = 112;
     reset_ball_on_paddle();
     draw_sprites();
+    bgm_restart();
 #ifdef TITLETIME
     title_ticks = *(volatile unsigned int *)0xFC9E - title_t0;
 #endif
@@ -969,13 +991,14 @@ static int title_screen(void)
         frame++;
         if (++idle >= 300) return ST_DEMO;  /* ~5 s idle: attract */
         if ((frame & 31) == 0) {
+            /* baked band blit: 41 ticks (glyph redraw) -> <1 */
             blink = !blink;
             if (blink)
-                draw_text5_centered(136, "PRESS SPACE TO START",
-                                    C_BG, C_BG, 1);
+                blit_img(tprompt_off_data, TPROMPT_OFF_X,
+                         TPROMPT_OFF_Y, TPROMPT_OFF_WB, TPROMPT_OFF_H);
             else
-                draw_text5_centered(136, "PRESS SPACE TO START",
-                                    C_WHITE, C_BG, 1);
+                blit_img(tprompt_on_data, TPROMPT_ON_X,
+                         TPROMPT_ON_Y, TPROMPT_ON_WB, TPROMPT_ON_H);
         }
         if (lat_trig) return ST_PLAY;
     }
@@ -1031,11 +1054,13 @@ static void build_intro(void)
             draw_sprites();
         }
     }
+    bgm_restart();
 #endif
 }
 
 static int play_game(void)
 {
+    audio_silence();
     score = 0;
     lives = 3;
     paddle_x = 112;
